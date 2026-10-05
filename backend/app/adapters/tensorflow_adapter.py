@@ -197,24 +197,8 @@ class TensorFlowAdapter(BaseModelAdapter):
             # Bias predictions based on image characteristics
             if self.labels:
                 for i, label in enumerate(self.labels):
-                    # Boost healthy classes if image looks green and uniform
-                    if 'healthy' in label.lower() and green_channel > 0.4 and edge_density < 0.5:
-                        probabilities[i] *= 3.0
-                    
-                    # Boost disease classes if image has more red/brown or high edge density
-                    elif 'healthy' not in label.lower():
-                        if red_channel > green_channel or edge_density > 0.7:
-                            probabilities[i] *= 2.0
-                        
-                        # Specific disease patterns
-                        if 'spot' in label.lower() and edge_density > 0.6:
-                            probabilities[i] *= 1.5
-                        elif 'blight' in label.lower() and red_channel > 0.3:
-                            probabilities[i] *= 1.5
-                        elif 'rust' in label.lower() and (red_channel + blue_channel) > green_channel:
-                            probabilities[i] *= 1.5
-                        elif 'scab' in label.lower() and edge_density > 0.8:
-                            probabilities[i] *= 1.5
+                    self._apply_label_bias(probabilities, i, label, green_channel, red_channel,
+                                           blue_channel, edge_density)
             
             # Add some randomness but keep it realistic
             probabilities += np.random.exponential(0.01, size=num_classes)
@@ -245,6 +229,29 @@ class TensorFlowAdapter(BaseModelAdapter):
             mock_prediction = mock_prediction / np.sum(mock_prediction)
             return mock_prediction.astype(np.float32)
     
+    @staticmethod
+    def _apply_label_bias(probabilities: np.ndarray, i: int, label: str, green_channel: float,
+                          red_channel: float, blue_channel: float, edge_density: float) -> None:
+        """Bias the probability of one class based on image characteristics."""
+        # Boost healthy classes if image looks green and uniform
+        if 'healthy' in label.lower() and green_channel > 0.4 and edge_density < 0.5:
+            probabilities[i] *= 3.0
+        
+        # Boost disease classes if image has more red/brown or high edge density
+        elif 'healthy' not in label.lower():
+            if red_channel > green_channel or edge_density > 0.7:
+                probabilities[i] *= 2.0
+            
+            # Specific disease patterns
+            if 'spot' in label.lower() and edge_density > 0.6:
+                probabilities[i] *= 1.5
+            elif 'blight' in label.lower() and red_channel > 0.3:
+                probabilities[i] *= 1.5
+            elif 'rust' in label.lower() and (red_channel + blue_channel) > green_channel:
+                probabilities[i] *= 1.5
+            elif 'scab' in label.lower() and edge_density > 0.8:
+                probabilities[i] *= 1.5
+
     def get_model_info(self) -> dict:
         """Get model information."""
         if self.model is None:
