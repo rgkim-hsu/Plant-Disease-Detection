@@ -12,6 +12,13 @@ import sys
 # Add backend to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
+def infer_label_from_filename(filename, labels):
+    """Return the first label whose name parts appear in the filename, or None."""
+    for label in labels:
+        if any(part in filename.lower() for part in label.lower().split('_')):
+            return label
+    return None
+
 def load_test_images(test_dir, labels):
     """Load and preprocess test images."""
     images = []
@@ -29,11 +36,7 @@ def load_test_images(test_dir, labels):
                 images.append(img_array)
                 
                 # Try to infer label from filename
-                predicted_label = None
-                for label in labels:
-                    if any(part in filename.lower() for part in label.lower().split('_')):
-                        predicted_label = label
-                        break
+                predicted_label = infer_label_from_filename(filename, labels)
                 
                 if predicted_label:
                     true_labels.append(predicted_label)
