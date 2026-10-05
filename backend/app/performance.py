@@ -247,7 +247,17 @@ class RequestBatcher:
             
             try:
                 # Collect batch
-                await self._collect_batch(batch, futures)
+                end_time = time.time() + self.timeout
+                while len(batch) < self.batch_size and time.time() < end_time:
+                    try:
+                        request_data, future = await asyncio.wait_for(
+                            self.request_queue.get(),
+                            timeout=max(0.1, end_time - time.time())
+                        )
+                        batch.append(request_data)
+                        futures.append(future)
+                    except asyncio.TimeoutError:
+                        break
                 
                 if not batch:
                     continue
@@ -256,39 +266,15 @@ class RequestBatcher:
                 results = await self._process_batch(batch)
                 
                 # Return results
-                self._set_results(futures, results)
+                for future, result in zip(futures, results):
+                    if not future.done():
+                        future.set_result(result)
                         
             except Exception as e:
                 # Handle errors
-                self._set_exception(futures, e)
-    
-    async def _collect_batch(self, batch: List[Any], futures: List[Any]):
-        """Collect requests into the given lists until the batch is full or the timeout expires."""
-        end_time = time.time() + self.timeout
-        while len(batch) < self.batch_size and time.time() < end_time:
-            try:
-                request_data, future = await asyncio.wait_for(
-                    self.request_queue.get(),
-                    timeout=max(0.1, end_time - time.time())
-                )
-                batch.append(request_data)
-                futures.append(future)
-            except asyncio.TimeoutError:
-                break
-    
-    @staticmethod
-    def _set_results(futures: List[Any], results: List[Any]):
-        """Deliver batch results to the waiting futures."""
-        for future, result in zip(futures, results):
-            if not future.done():
-                future.set_result(result)
-    
-    @staticmethod
-    def _set_exception(futures: List[Any], e: Exception):
-        """Propagate a batch failure to the waiting futures."""
-        for future in futures:
-            if not future.done():
-                future.set_exception(e)
+                for future in futures:
+                    if not future.done():
+                        future.set_exception(e)
     
     async def _process_batch(self, batch: List[Any]) -> List[Any]:
         """Override this method to implement batch processing logic."""
