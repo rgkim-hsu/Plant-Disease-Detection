@@ -91,27 +91,7 @@ class ModelService:
                 disease_class = self.config.get_class_by_id(label)
                 print(f"[DEBUG] Disease class for label {label}: {disease_class}")
                 if disease_class:
-                    severity_info = self.config.get_severity_for_class(label)
-                    
-                    prediction_result = PredictionResult(
-                        label=label,
-                        confidence=confidence,
-                        class_name=disease_class.name,
-                        plant=disease_class.plant,
-                        disease=disease_class.disease,
-                        severity=disease_class.severity,
-                        severity_level=severity_info.level if severity_info else 0,
-                        severity_color=severity_info.color if severity_info else "#10B981",
-                        treatment=TreatmentInfo(
-                            chemical=disease_class.treatment.chemical,
-                            cultural=disease_class.treatment.cultural,
-                            preventive=disease_class.treatment.preventive
-                        ),
-                        symptoms=disease_class.symptoms or [],
-                        causes=disease_class.causes or "",
-                        urgency=disease_class.urgency or "",
-                        economic_impact=disease_class.economic_impact or ""
-                    )
+                    prediction_result = self._build_prediction_result(label, confidence, disease_class)
                     detailed_predictions.append(prediction_result)
             
             # Handle uncertain predictions
@@ -167,6 +147,30 @@ class ModelService:
         except Exception as e:
             print(f"Error during prediction: {e}")
             raise
+    
+    def _build_prediction_result(self, label, confidence, disease_class) -> PredictionResult:
+        """Build the detailed prediction result for one class using the dynamic configuration."""
+        severity_info = self.config.get_severity_for_class(label)
+        
+        return PredictionResult(
+            label=label,
+            confidence=confidence,
+            class_name=disease_class.name,
+            plant=disease_class.plant,
+            disease=disease_class.disease,
+            severity=disease_class.severity,
+            severity_level=severity_info.level if severity_info else 0,
+            severity_color=severity_info.color if severity_info else "#10B981",
+            treatment=TreatmentInfo(
+                chemical=disease_class.treatment.chemical,
+                cultural=disease_class.treatment.cultural,
+                preventive=disease_class.treatment.preventive
+            ),
+            symptoms=disease_class.symptoms or [],
+            causes=disease_class.causes or "",
+            urgency=disease_class.urgency or "",
+            economic_impact=disease_class.economic_impact or ""
+        )
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the loaded model."""
